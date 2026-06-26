@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sản phẩm & Bình luận — Sentiment AI</title>
+<style>
+:root{
+  --bg:#0b1120;--surface:#131c2e;--card:#182035;--border:#1e2d4a;
+  --text:#e2e8f0;--muted:#64748b;--accent:#6366f1;--accent-h:#818cf8;
+  --green:#22c55e;--red:#ef4444;--yellow:#eab308;
+  --radius:12px;--shadow:0 4px 24px #0006;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent-h);text-decoration:none}a:hover{text-decoration:underline}
+
+/* ── Nav ── */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--surface)}
+.topnav .logo{font-weight:700;font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.topnav .logo span{font-size:1.3rem}
+.topnav nav{display:flex;gap:6px}
+.topnav nav a{padding:6px 14px;border-radius:8px;font-size:.85rem;font-weight:600;color:var(--muted);border:1px solid transparent;transition:all .2s}
+.topnav nav a:hover{color:var(--accent-h);border-color:var(--border);text-decoration:none}
+.topnav nav a.active{color:var(--accent-h);border-color:var(--accent);background:#1e1b4b}
+
+/* ── Layout ── */
+.app{max-width:1100px;margin:0 auto;padding:28px 24px 60px}
+.page-title{font-size:1.4rem;font-weight:800;margin-bottom:6px}
+.page-sub{color:var(--muted);font-size:.88rem;margin-bottom:28px}
+
+/* ── Product Grid ── */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+.pcard{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:all .25s;cursor:pointer}
+.pcard:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:var(--shadow)}
+.pcard.selected{border-color:var(--accent-h);box-shadow:0 0 0 2px #818cf833}
+.pcard img{width:100%;height:180px;object-fit:cover;background:#1e293b}
+.pcard .info{padding:16px 18px}
+.pcard .info h3{font-size:1rem;margin-bottom:8px;line-height:1.4;font-weight:700}
+.pcard .meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.pcard .cat{font-size:.75rem;background:#1e293b;padding:3px 10px;border-radius:12px;color:var(--muted)}
+.pcard .price{font-size:1.05rem;font-weight:700;color:var(--accent-h)}
+.pcard .cmt-count{font-size:.78rem;color:var(--muted)}
+.pcard .dots{display:flex;gap:5px;margin-top:8px}
+.dot{font-size:.72rem;padding:2px 8px;border-radius:10px;font-weight:600}
+.dot.pos{background:#052e16;color:var(--green)}
+.dot.neg{background:#450a0a;color:var(--red)}
+.dot.neu{background:#422006;color:var(--yellow)}
+
+/* ── Detail Panel ── */
+.panel{display:none;margin-top:28px;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;animation:slideUp .3s}
+.panel.show{display:block}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+.panel-head{display:flex;gap:20px;padding:24px;border-bottom:1px solid var(--border)}
+.panel-head img{width:200px;height:150px;object-fit:cover;border-radius:10px;background:#1e293b;flex-shrink:0}
+.panel-head .pinfo h2{font-size:1.15rem;font-weight:700;margin-bottom:6px}
+.panel-head .pinfo .row{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--muted);margin-bottom:4px}
+.panel-head .pinfo .price-lg{font-size:1.3rem;font-weight:800;color:var(--accent-h)}
+
+/* ── Comment Form ── */
+.cform{padding:20px 24px;border-bottom:1px solid var(--border)}
+.cform h3{font-size:.95rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.frow{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.frow input,.frow textarea{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:.88rem;outline:none;transition:border .2s;font-family:inherit}
+.frow input:focus,.frow textarea:focus{border-color:var(--accent)}
+.frow input{width:220px}
+.frow textarea{flex:1;min-height:70px;resize:vertical}
+.factions{display:flex;gap:10px;align-items:center}
+.btn{padding:9px 20px;border:none;border-radius:8px;font-size:.88rem;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-p{background:var(--accent);color:#fff}.btn-p:hover{background:#4f46e5}
+.btn-p:disabled{background:#334155;cursor:not-allowed}
+.btn-o{background:transparent;color:var(--muted);border:1px solid var(--border)}.btn-o:hover{border-color:var(--accent);color:var(--accent-h)}
+
+.cresult{margin-top:14px;padding:14px 18px;border-radius:10px;background:var(--bg);border:1px solid var(--border);display:none}
+.cresult.show{display:block;animation:slideUp .3s}
+.cresult .rl{font-size:1.1rem;font-weight:800;margin-bottom:2px}
+.cresult .rl.positive{color:var(--green)}.cresult .rl.negative{color:var(--red)}.cresult .rl.neutral{color:var(--yellow)}
+.cresult .desc{font-size:.78rem;color:var(--muted);margin-bottom:6px}
+.cresult .bar-wrap{background:#1e293b;border-radius:4px;height:8px;overflow:hidden}
+.cresult .bar{height:100%;border-radius:4px;transition:width .5s}
+.cresult .rmeta{font-size:.78rem;color:var(--muted);margin-top:6px}
+
+/* ── Comments List ── */
+.clist{padding:20px 24px}
+.clist h3{font-size:.95rem;font-weight:700;margin-bottom:14px}
+.citem{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid #1e293b}
+.citem:last-child{border-bottom:none}
+.cava{width:36px;height:36px;border-radius:50%;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:700;flex-shrink:0;color:var(--accent-h)}
+.cbody{flex:1;min-width:0}
+.chead{display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap}
+.chead .name{font-weight:700;font-size:.88rem}
+.badge{display:inline-block;padding:2px 10px;border-radius:14px;font-size:.72rem;font-weight:700}
+.badge.positive{background:#052e16;color:var(--green)}
+.badge.negative{background:#450a0a;color:var(--red)}
+.badge.neutral{background:#422006;color:var(--yellow)}
+.chead .time{font-size:.75rem;color:#334155}
+.ctext{font-size:.88rem;line-height:1.5;color:#cbd5e1}
+.cconf{font-size:.72rem;color:#334155;margin-top:3px}
+.empty{text-align:center;padding:30px;color:#334155;font-size:.88rem}
+
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #ffffff44;border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:700px){
+  .grid{grid-template-columns:1fr}
+  .panel-head{flex-direction:column}
+  .panel-head img{width:100%;height:160px}
+  .frow{flex-direction:column}
+  .frow input{width:100%}
+}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="logo"><span>🧠</span> Sentiment AI</div>
+  <nav>
+    <a href="/">Phân tích</a>
+    <a href="/products" class="active">Sản phẩm</a>
+    <a href="/stats">Dashboard</a>
+  </nav>
+</div>
+
+<div class="app">
+  <h1 class="page-title">Sản phẩm & Bình luận</h1>
+  <p class="page-sub">Chọn sản phẩm để xem bình luận. Gửi bình luận mới — mô hình BiLSTM sẽ tự động phân tích cảm xúc.</p>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="panel" id="panel">
+    <div class="panel-head">
+      <img id="pImg" src="" alt="">
+      <div class="pinfo">
+        <h2 id="pName"></h2>
+        <div class="row"><span id="pCat"></span><span id="pCmtCount"></span></div>
+        <div class="price-lg" id="pPrice"></div>
+        <div class="dots" id="pDots"></div>
+      </div>
+    </div>
+
+    <div class="cform">
+      <h3>✍️ Gửi bình luận mới</h3>
+      <div class="frow"><input type="text" id="cUser" placeholder="Tên của bạn..."></div>
+      <div class="frow"><textarea id="cText" placeholder="Nhập bình luận về sản phẩm... (Ctrl+Enter để gửi)"></textarea></div>
+      <div class="factions">
+        <button class="btn btn-p" id="cBtn" onclick="submitComment()">Gửi bình luận</button>
+        <span id="cStatus" style="font-size:.82rem;color:var(--muted)"></span>
+      </div>
+      <div class="cresult" id="cResult">
+        <div class="desc">Kết quả phân tích bởi mô hình <strong>BiLSTM + Multi-Head Attention</strong></div>
+        <div class="rl" id="rLabel"></div>
+        <div class="bar-wrap"><div class="bar" id="rBar"></div></div>
+        <div class="rmeta" id="rMeta"></div>
+      </div>
+    </div>
+
+    <div class="clist">
+      <h3>💬 Bình luận (<span id="cTotal">0</span>)</h3>
+      <div id="cList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const LI = {
+  'Tích cực':  { cls:'positive', color:'#22c55e' },
+  'Tiêu cực':  { cls:'negative', color:'#ef4444' },
+  'Trung tính': { cls:'neutral',  color:'#eab308' },
+};
+let products = [], selected = null, pstats = {};
+
+(async function(){
+  const [pr, sr] = await Promise.all([fetch('/api/products'), fetch('/api/stats')]);
+  products = await pr.json();
+  const sd = await sr.json();
+  sd.by_product.forEach(p => { pstats[p.product_id] = p; });
+  renderGrid();
+})();
+
+function renderGrid(){
+  document.getElementById('grid').innerHTML = products.map(p => {
+    const s = pstats[p.id] || {};
+    const pos = s['Tích cực']||0, neg = s['Tiêu cực']||0, neu = s['Trung tính']||0;
+    const t = pos+neg+neu;
+    return `<div class="pcard ${p.id===selected?'selected':''}" onclick="selectProduct(${p.id})">
+      <img src="${p.image_url}" alt="${esc(p.name)}" onerror="this.style.display='none'">
+      <div class="info">
+        <h3>${esc(p.name)}</h3>
+        <div class="meta"><span class="cat">${esc(p.category)}</span><span class="price">${fmt(p.price)}</span></div>
+        <div class="cmt-count">${t} bình luận</div>
+        ${t?`<div class="dots">${pos?`<span class="dot pos">👍 ${pos}</span>`:''}${neg?`<span class="dot neg">👎 ${neg}</span>`:''}${neu?`<span class="dot neu">😐 ${neu}</span>`:''}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function selectProduct(id){
+  selected = id;
+  renderGrid();
+  const p = products.find(x => x.id === id);
+  if(!p) return;
+
+  document.getElementById('pImg').src = p.image_url;
+  document.getElementById('pImg').onerror = function(){this.style.display='none'};
+  document.getElementById('pName').textContent = p.name;
+  document.getElementById('pCat').textContent = '📁 ' + p.category;
+  document.getElementById('pPrice').textContent = fmt(p.price);
+
+  const s = pstats[id] || {};
+  const pos=s['Tích cực']||0, neg=s['Tiêu cực']||0, neu=s['Trung tính']||0, t=pos+neg+neu;
+  document.getElementById('pCmtCount').textContent = t + ' bình luận';
+  document.getElementById('pDots').innerHTML = [
+    pos?`<span class="dot pos">👍 Tích cực: ${pos}</span>`:'',
+    neg?`<span class="dot neg">👎 Tiêu cực: ${neg}</span>`:'',
+    neu?`<span class="dot neu">😐 Trung tính: ${neu}</span>`:''
+  ].join('');
+
+  document.getElementById('cResult').classList.remove('show');
+  document.getElementById('cStatus').textContent = '';
+  await loadComments(id);
+  document.getElementById('panel').classList.add('show');
+  document.getElementById('panel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+async function loadComments(pid){
+  const r = await fetch(`/api/comments?product_id=${pid}`);
+  const list = await r.json();
+  document.getElementById('cTotal').textContent = list.length;
+  if(!list.length){
+    document.getElementById('cList').innerHTML = '<div class="empty">Chưa có bình luận nào.</div>';
+    return;
+  }
+  document.getElementById('cList').innerHTML = list.map(c => {
+    const li = LI[c.label] || LI['Trung tính'];
+    const ini = c.user_name.split(' ').pop()[0].toUpperCase();
+    return `<div class="citem">
+      <div class="cava">${ini}</div>
+      <div class="cbody">
+        <div class="chead">
+          <span class="name">${esc(c.user_name)}</span>
+          <span class="badge ${li.cls}">${c.label}</span>
+          <span class="time">${c.created_at||''}</span>
+        </div>
+        <div class="ctext">${esc(c.content)}</div>
+        <div class="cconf">Độ tin cậy: ${(c.confidence*100).toFixed(1)}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function submitComment(){
+  const user = document.getElementById('cUser').value.trim();
+  const text = document.getElementById('cText').value.trim();
+  const btn  = document.getElementById('cBtn');
+  const st   = document.getElementById('cStatus');
+
+  if(!selected) return;
+  if(!user){ st.textContent='⚠️ Nhập tên.'; st.style.color=COLORS.red; return; }
+  if(!text){ st.textContent='⚠️ Nhập bình luận.'; st.style.color=COLORS.red; return; }
+
+  st.textContent=''; btn.disabled=true;
+  btn.innerHTML='<span class="spinner"></span>Đang phân tích...';
+
+  try{
+    const r = await fetch('/api/comments',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({product_id:selected, user_name:user, content:text})
+    });
+    if(!r.ok){ const e = await r.json(); throw new Error(e.detail||'Lỗi server'); }
+    const d = await r.json();
+
+    const li = LI[d.label]||LI['Trung tính'];
+    const conf = (d.confidence*100).toFixed(1);
+    document.getElementById('rLabel').textContent = d.label;
+    document.getElementById('rLabel').className = 'rl '+li.cls;
+    document.getElementById('rBar').style.width = conf+'%';
+    document.getElementById('rBar').style.background = li.color;
+    document.getElementById('rMeta').textContent = `Độ tin cậy: ${conf}% — ${d.message}`;
+    document.getElementById('cResult').classList.add('show');
+    document.getElementById('cText').value = '';
+
+    await loadComments(selected);
+    const sr = await fetch('/api/stats');
+    const sd = await sr.json();
+    sd.by_product.forEach(p => { pstats[p.product_id] = p; });
+    renderGrid();
+
+    st.textContent='✅ Đã gửi!'; st.style.color='#22c55e';
+    setTimeout(()=>{st.textContent=''},3000);
+  }catch(e){
+    st.textContent='❌ '+e.message; st.style.color='#ef4444';
+  }finally{
+    btn.disabled=false; btn.textContent='Gửi bình luận';
+  }
+}
+
+document.getElementById('cText').addEventListener('keydown', e => {
+  if(e.key==='Enter' && e.ctrlKey){ e.preventDefault(); submitComment(); }
+});
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function fmt(n){return new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(n)}
+const COLORS = {red:'#ef4444'};
+</script>
+</body>
+</html>

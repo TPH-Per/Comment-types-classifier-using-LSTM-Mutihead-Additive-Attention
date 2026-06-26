@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phân tích cảm xúc — BiLSTM</title>
+<style>
+:root{
+  --bg:#0b1120;--surface:#131c2e;--card:#182035;--border:#1e2d4a;
+  --text:#e2e8f0;--muted:#64748b;--accent:#6366f1;--accent-h:#818cf8;
+  --green:#22c55e;--red:#ef4444;--yellow:#eab308;
+  --green-bg:#052e16;--red-bg:#450a0a;--yellow-bg:#422006;
+  --radius:12px;--shadow:0 4px 24px #0006;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent-h);text-decoration:none}a:hover{text-decoration:underline}
+
+/* ── Nav ── */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--surface)}
+.topnav .logo{font-weight:700;font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.topnav .logo span{font-size:1.3rem}
+.topnav nav{display:flex;gap:6px}
+.topnav nav a{padding:6px 14px;border-radius:8px;font-size:.85rem;font-weight:600;color:var(--muted);border:1px solid transparent;transition:all .2s}
+.topnav nav a:hover{color:var(--accent-h);border-color:var(--border);text-decoration:none}
+.topnav nav a.active{color:var(--accent-h);border-color:var(--accent);background:#1e1b4b}
+
+/* ── Main ── */
+.main{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 54px);padding:24px}
+.panel{width:100%;max-width:540px}
+.panel h1{font-size:1.6rem;text-align:center;margin-bottom:6px;font-weight:800}
+.panel .sub{text-align:center;color:var(--muted);font-size:.88rem;margin-bottom:32px}
+.panel .sub code{background:#1e293b;padding:2px 6px;border-radius:4px;font-size:.8rem;color:var(--accent-h)}
+
+textarea{width:100%;height:130px;padding:14px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem;resize:vertical;outline:none;transition:border .2s;font-family:inherit;line-height:1.5}
+textarea:focus{border-color:var(--accent)}
+textarea::placeholder{color:#475569}
+
+.btn{width:100%;margin-top:14px;padding:13px;border:none;border-radius:var(--radius);background:var(--accent);color:#fff;font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.01em}
+.btn:hover{background:#4f46e5;transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn:disabled{background:#334155;cursor:not-allowed;transform:none}
+
+/* Result */
+.result{margin-top:24px;padding:20px;border-radius:var(--radius);background:var(--card);border:1px solid var(--border);display:none}
+.result.show{display:block;animation:fadeUp .3s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.result .label{font-size:1.4rem;font-weight:800;margin-bottom:4px}
+.result .label.positive{color:var(--green)}
+.result .label.negative{color:var(--red)}
+.result .label.neutral{color:var(--yellow)}
+.bar-wrap{background:#1e293b;border-radius:6px;height:10px;margin-top:10px;overflow:hidden}
+.bar{height:100%;border-radius:6px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.conf{color:var(--muted);font-size:.82rem;margin-top:8px}
+
+.error{margin-top:16px;padding:12px 16px;border-radius:var(--radius);background:var(--red-bg);border:1px solid #7f1d1d;color:#fca5a5;font-size:.88rem;display:none}
+
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #ffffff44;border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.footer{text-align:center;margin-top:24px;color:#334155;font-size:.75rem}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="logo"><span>🧠</span> Sentiment AI</div>
+  <nav>
+    <a href="/" class="active">Phân tích</a>
+    <a href="/products">Sản phẩm</a>
+    <a href="/stats">Dashboard</a>
+  </nav>
+</div>
+
+<div class="main">
+  <div class="panel">
+    <h1>Phân tích cảm xúc</h1>
+    <p class="sub">Mô hình <code>BiLSTM + 4-Head Attention</code> cho tiếng Việt</p>
+
+    <textarea id="input" placeholder="Nhập bình luận tiếng Việt...&#10;VD: Sản phẩm rất tốt, giao hàng nhanh!"></textarea>
+    <button class="btn" id="btn" onclick="predict()">Phân tích cảm xúc</button>
+
+    <div class="error" id="error"></div>
+    <div class="result" id="result">
+      <div class="label" id="label"></div>
+      <div class="bar-wrap"><div class="bar" id="bar"></div></div>
+      <div class="conf" id="conf"></div>
+    </div>
+
+    <div class="footer">BiLSTM · 2-layer · 256 hidden · 4-head attention · Vietnamese NLP</div>
+  </div>
+</div>
+
+<script>
+const LABEL_MAP = {
+  'Tích cực':  { cls:'positive', color:'#22c55e' },
+  'Tiêu cực':  { cls:'negative', color:'#ef4444' },
+  'Trung tính': { cls:'neutral',  color:'#eab308' },
+};
+
+async function predict() {
+  const text = document.getElementById('input').value.trim();
+  const btn  = document.getElementById('btn');
+  const err  = document.getElementById('error');
+  const res  = document.getElementById('result');
+
+  if (!text) {
+    err.textContent = 'Vui lòng nhập văn bản.';
+    err.style.display = 'block';
+    res.classList.remove('show');
+    return;
+  }
+  err.style.display = 'none';
+  res.classList.remove('show');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Đang phân tích...';
+
+  try {
+    const r = await fetch('/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Lỗi server'); }
+    const data = await r.json();
+    const info = LABEL_MAP[data.label] || LABEL_MAP['Trung tính'];
+
+    document.getElementById('label').textContent = data.label;
+    document.getElementById('label').className = 'label ' + info.cls;
+    document.getElementById('bar').style.width = (data.confidence * 100) + '%';
+    document.getElementById('bar').style.background = info.color;
+    document.getElementById('conf').textContent = 'Độ tin cậy: ' + (data.confidence * 100).toFixed(1) + '%';
+    res.classList.add('show');
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Phân tích cảm xúc';
+  }
+}
+
+document.getElementById('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); predict(); }
+});
+</script>
+</body>
+</html>

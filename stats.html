@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard thống kê — Sentiment AI</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0b1120;--surface:#131c2e;--card:#182035;--border:#1e2d4a;
+  --text:#e2e8f0;--muted:#64748b;--accent:#6366f1;--accent-h:#818cf8;
+  --green:#22c55e;--red:#ef4444;--yellow:#eab308;
+  --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent-h);text-decoration:none}a:hover{text-decoration:underline}
+
+/* ── Nav ── */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--surface)}
+.topnav .logo{font-weight:700;font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.topnav .logo span{font-size:1.3rem}
+.topnav nav{display:flex;gap:6px}
+.topnav nav a{padding:6px 14px;border-radius:8px;font-size:.85rem;font-weight:600;color:var(--muted);border:1px solid transparent;transition:all .2s}
+.topnav nav a:hover{color:var(--accent-h);border-color:var(--border);text-decoration:none}
+.topnav nav a.active{color:var(--accent-h);border-color:var(--accent);background:#1e1b4b}
+
+/* ── Layout ── */
+.app{max-width:1200px;margin:0 auto;padding:28px 24px 60px}
+.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.top-bar h1{font-size:1.4rem;font-weight:800;display:flex;align-items:center;gap:10px}
+.btn{padding:7px 16px;border:none;border-radius:8px;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-o{background:transparent;color:var(--muted);border:1px solid var(--border)}.btn-o:hover{border-color:var(--accent);color:var(--accent-h)}
+
+/* ── Cards ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:28px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:all .2s;cursor:pointer}
+.card:hover{border-color:var(--accent)}
+.card.active{border-color:var(--accent-h);box-shadow:0 0 0 2px #818cf833}
+.card .num{font-size:2rem;font-weight:800}
+.card .lbl{font-size:.82rem;color:var(--muted);margin-top:2px}
+.card.total .num{color:var(--accent-h)}
+.card.positive .num{color:var(--green)}
+.card.negative .num{color:var(--red)}
+.card.neutral .num{color:var(--yellow)}
+
+/* ── Charts ── */
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:28px}
+.chart-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.chart-box h3{font-size:.92rem;font-weight:700;margin-bottom:12px;color:#cbd5e1}
+.chart-wrap{position:relative;max-height:280px}
+
+/* ── Filter ── */
+.fbar{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.fbar label{font-size:.82rem;color:var(--muted)}
+.fbar select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:8px;font-size:.82rem;outline:none;cursor:pointer}
+.fbar select:focus{border-color:var(--accent)}
+
+/* ── Table ── */
+.twrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.twrap h3{font-size:.92rem;font-weight:700;padding:16px 20px 0;color:#cbd5e1}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+thead th{background:var(--bg);text-align:left;padding:10px 16px;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:#475569;border-bottom:1px solid var(--border)}
+tbody td{padding:11px 16px;font-size:.85rem;border-bottom:1px solid #131c2e}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:#1e293b}
+.badge{display:inline-block;padding:2px 10px;border-radius:14px;font-size:.72rem;font-weight:700}
+.badge.positive{background:#052e16;color:var(--green)}
+.badge.negative{background:#450a0a;color:var(--red)}
+.badge.neutral{background:#422006;color:var(--yellow)}
+.pchip{display:inline-flex;align-items:center;gap:5px;background:#1e293b;padding:3px 10px;border-radius:14px;font-size:.8rem}
+.cbar{display:inline-block;height:6px;border-radius:3px;vertical-align:middle;margin-left:6px}
+.view-btn{color:var(--accent-h);cursor:pointer;font-size:.82rem;font-weight:700;background:none;border:none}
+.view-btn:hover{color:#a5b4fc}
+.empty{text-align:center;padding:36px;color:#334155;font-size:.9rem}
+
+/* ── Modal ── */
+.overlay{display:none;position:fixed;inset:0;background:#000c;z-index:100;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;width:92%;max-width:580px;max-height:85vh;overflow-y:auto;padding:26px;animation:slideUp .25s}
+@keyframes slideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.modal h2{font-size:1.1rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.modal .x{float:right;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1}
+.modal .x:hover{color:var(--red)}
+.drow{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #1e293b}
+.drow .k{min-width:110px;color:#475569;font-size:.82rem}
+.drow .v{font-size:.85rem;flex:1}
+.modal .ctext{background:var(--bg);padding:14px 18px;border-radius:10px;margin-top:10px;font-size:.9rem;line-height:1.6;border-left:3px solid var(--accent)}
+
+@media(max-width:768px){
+  .charts{grid-template-columns:1fr}
+  table{font-size:.78rem}
+  thead th,tbody td{padding:8px 10px}
+}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="logo"><span>🧠</span> Sentiment AI</div>
+  <nav>
+    <a href="/">Phân tích</a>
+    <a href="/products">Sản phẩm</a>
+    <a href="/stats" class="active">Dashboard</a>
+  </nav>
+</div>
+
+<div class="app">
+  <div class="top-bar">
+    <h1>📊 Dashboard thống kê</h1>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-o" onclick="reanalyze()">🔄 Phân tích lại</button>
+    </div>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="charts">
+    <div class="chart-box">
+      <h3>📈 Phân bố cảm xúc</h3>
+      <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>📊 Cảm xúc theo sản phẩm</h3>
+      <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="fbar">
+    <label>Sản phẩm:</label>
+    <select id="fProd"><option value="">Tất cả</option></select>
+    <label>Nhãn:</label>
+    <select id="fLabel">
+      <option value="">Tất cả</option>
+      <option value="Tích cực">Tích cực</option>
+      <option value="Tiêu cực">Tiêu cực</option>
+      <option value="Trung tính">Trung tính</option>
+    </select>
+    <span style="flex:1"></span>
+    <span id="cCount" style="font-size:.82rem;color:#475569"></span>
+  </div>
+
+  <div class="twrap">
+    <h3>💬 Danh sách bình luận</h3>
+    <table>
+      <thead><tr><th>#</th><th>Sản phẩm</th><th>Người dùng</th><th>Bình luận</th><th>Nhãn</th><th>Tin cậy</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none">Không có bình luận nào phù hợp.</div>
+  </div>
+</div>
+
+<div class="overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="x" onclick="closeModal()">&times;</button>
+    <h2 id="mTitle">Chi tiết bình luận</h2>
+    <div id="mBody"></div>
+  </div>
+</div>
+
+<script>
+const LC = {
+  'Tích cực':  { cls:'positive', color:'#22c55e', bar:'#22c55e' },
+  'Tiêu cực':  { cls:'negative', color:'#ef4444', bar:'#ef4444' },
+  'Trung tính': { cls:'neutral',  color:'#eab308', bar:'#eab308' },
+};
+let allC=[], allP=[], stats=null, pieChart, barChart;
+
+(async function(){
+  const [sr, cr, pr] = await Promise.all([fetch('/api/stats'), fetch('/api/comments'), fetch('/api/products')]);
+  stats = await sr.json();
+  allC = await cr.json();
+  allP = await pr.json();
+  buildCards(); buildPie(); buildBar(); buildFilter(); render(); setupFilter();
+})();
+
+function buildCards(){
+  const d = stats.distribution;
+  const pos=d['Tích cực']||0, neg=d['Tiêu cực']||0, neu=d['Trung tính']||0, t=stats.total;
+  document.getElementById('cards').innerHTML = `
+    <div class="card total active" data-f=""><div class="num">${t}</div><div class="lbl">Tổng bình luận</div></div>
+    <div class="card positive" data-f="Tích cực"><div class="num">${pos}</div><div class="lbl">Tích cực</div></div>
+    <div class="card negative" data-f="Tiêu cực"><div class="num">${neg}</div><div class="lbl">Tiêu cực</div></div>
+    <div class="card neutral" data-f="Trung tính"><div class="num">${neu}</div><div class="lbl">Trung tính</div></div>
+  `;
+  document.querySelectorAll('.card').forEach(c => {
+    c.addEventListener('click', () => {
+      document.querySelectorAll('.card').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      document.getElementById('fLabel').value = c.dataset.f;
+      render();
+    });
+  });
+}
+
+function buildPie(){
+  const d = stats.distribution;
+  const labels = ['Tích cực','Tiêu cực','Trung tính'];
+  const data = labels.map(l => d[l]||0);
+  pieChart = new Chart(document.getElementById('pieChart'),{
+    type:'doughnut',
+    data:{labels,datasets:[{data,backgroundColor:['#22c55e','#ef4444','#eab308'],borderColor:'#182035',borderWidth:3}]},
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      plugins:{
+        legend:{position:'bottom',labels:{color:'#64748b',padding:14,usePointStyle:true,pointStyleWidth:10}},
+        tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw} (${(c.raw/stats.total*100).toFixed(1)}%)`}}
+      }
+    }
+  });
+}
+
+function buildBar(){
+  const bp = stats.by_product;
+  const labels = bp.map(p => p.product_name.length>18?p.product_name.slice(0,18)+'…':p.product_name);
+  barChart = new Chart(document.getElementById('barChart'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Tích cực',data:bp.map(p=>p['Tích cực']),backgroundColor:'#22c55e',borderRadius:4},
+        {label:'Tiêu cực',data:bp.map(p=>p['Tiêu cực']),backgroundColor:'#ef4444',borderRadius:4},
+        {label:'Trung tính',data:bp.map(p=>p['Trung tính']),backgroundColor:'#eab308',borderRadius:4},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      scales:{
+        x:{stacked:true,grid:{display:false},ticks:{color:'#475569',font:{size:10}}},
+        y:{stacked:true,grid:{color:'#1e2d4a33'},ticks:{color:'#475569',stepSize:1}},
+      },
+      plugins:{
+        legend:{position:'bottom',labels:{color:'#64748b',padding:14,usePointStyle:true,pointStyleWidth:10}},
+        tooltip:{mode:'index',intersect:false}
+      }
+    }
+  });
+}
+
+function buildFilter(){
+  const sel = document.getElementById('fProd');
+  allP.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = p.name;
+    sel.appendChild(o);
+  });
+}
+
+function setupFilter(){
+  document.getElementById('fProd').addEventListener('change', render);
+  document.getElementById('fLabel').addEventListener('change', () => {
+    const lbl = document.getElementById('fLabel').value;
+    document.querySelectorAll('.card').forEach(c => c.classList.toggle('active', c.dataset.f===lbl));
+    render();
+  });
+}
+
+function render(){
+  const pid = document.getElementById('fProd').value;
+  const lbl = document.getElementById('fLabel').value;
+  let list = allC;
+  if(pid) list = list.filter(c => c.product_id==pid);
+  if(lbl) list = list.filter(c => c.label===lbl);
+  document.getElementById('cCount').textContent = list.length + ' bình luận';
+
+  if(!list.length){
+    document.getElementById('tbody').innerHTML='';
+    document.getElementById('empty').style.display='block';
+    return;
+  }
+  document.getElementById('empty').style.display='none';
+
+  document.getElementById('tbody').innerHTML = list.map((c,i) => {
+    const lc = LC[c.label]||LC['Trung tính'];
+    const cp = (c.confidence*100).toFixed(1);
+    const snip = c.content.length>55 ? c.content.slice(0,55)+'…' : c.content;
+    return `<tr>
+      <td style="color:#475569">${i+1}</td>
+      <td><span class="pchip">${esc(c.product_name)}</span></td>
+      <td>${esc(c.user_name)}</td>
+      <td title="${esc(c.content)}">${esc(snip)}</td>
+      <td><span class="badge ${lc.cls}">${c.label}</span></td>
+      <td>${cp}%<span class="cbar" style="width:${cp}px;background:${lc.bar};opacity:.5"></span></td>
+      <td><button class="view-btn" onclick="showDetail(${c.id})">Xem</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function showDetail(id){
+  const r = await fetch(`/api/comments/${id}`);
+  if(!r.ok) return;
+  const c = await r.json();
+  const lc = LC[c.label]||LC['Trung tính'];
+  const cp = (c.confidence*100).toFixed(1);
+  document.getElementById('mTitle').innerHTML = `💬 Bình luận #${c.id}`;
+  document.getElementById('mBody').innerHTML = `
+    <div class="drow"><span class="k">Sản phẩm</span><span class="v"><span class="pchip">${esc(c.product_name)}</span></span></div>
+    <div class="drow"><span class="k">Danh mục</span><span class="v">${esc(c.category)}</span></div>
+    <div class="drow"><span class="k">Giá</span><span class="v">${fmt(c.price)}</span></div>
+    <div class="drow"><span class="k">Người dùng</span><span class="v">${esc(c.user_name)}</span></div>
+    <div class="drow"><span class="k">Thời gian</span><span class="v">${c.created_at||'—'}</span></div>
+    <div class="drow"><span class="k">Nhãn</span><span class="v"><span class="badge ${lc.cls}">${c.label}</span></span></div>
+    <div class="drow"><span class="k">Tin cậy</span><span class="v">${cp}%</span></div>
+    <div class="ctext" style="border-left-color:${lc.color}">${esc(c.content)}</div>
+  `;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('show'); }
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+async function reanalyze(){
+  if(!confirm('Phân tích lại toàn bộ bình luận bằng mô hình AI?')) return;
+  const r = await fetch('/api/reanalyze');
+  const d = await r.json();
+  alert(`Đã phân tích lại ${d.updated} bình luận.`);
+  location.reload();
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function fmt(n){return new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(n)}
+</script>
+</body>
+</html>
